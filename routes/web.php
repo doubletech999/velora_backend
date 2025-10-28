@@ -419,3 +419,25 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::delete('/bookings/{id}', [AdminController::class, 'deleteBooking'])->name('bookings.delete');
     });
 });
+
+// ========================================
+// GUIDE ROUTES
+// ========================================
+
+// Guide Routes
+Route::prefix('guide')->name('guide.')->group(function () {
+    
+    // Authentication Routes
+    Route::get('/login', [App\Http\Controllers\Guide\GuideAuthController::class, 'showLoginForm'])->name('login');
+    Route::post('/login', [App\Http\Controllers\Guide\GuideAuthController::class, 'login'])->name('login.submit');
+    
+    // Protected Routes
+    Route::middleware(['web', 'guide'])->group(function () {
+        Route::get('/', [App\Http\Controllers\Guide\GuideController::class, 'dashboard'])->name('dashboard');
+        Route::get('/bookings', [App\Http\Controllers\Guide\GuideController::class, 'bookings'])->name('bookings');
+        Route::get('/reviews', [App\Http\Controllers\Guide\GuideController::class, 'reviews'])->name('reviews');
+        Route::get('/profile', [App\Http\Controllers\Guide\GuideController::class, 'profile'])->name('profile');
+        Route::put('/profile', [App\Http\Controllers\Guide\GuideController::class, 'updateProfile'])->name('profile.update');
+        Route::post('/logout', [App\Http\Controllers\Guide\GuideAuthController::class, 'logout'])->name('logout');
+    });
+});
