@@ -40,14 +40,6 @@
 </div>
 @endif
 
-<!-- View Public Profile Button -->
-<div class="mb-6 flex justify-end">
-    <a href="{{ route('guides.show', $guide->id) }}" target="_blank" 
-        class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-md">
-        <i class="fas fa-eye mr-2"></i>View Public Profile
-    </a>
-</div>
-
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
     
     <!-- Profile Card -->
@@ -74,7 +66,8 @@
                 </div>
             </div>
             
-            <div class="space-y-3 border-t pt-4">
+            <!-- Basic Stats -->
+            <div class="space-y-3 border-t pt-4 mb-4">
                 <div class="flex items-center text-sm">
                     <i class="fas fa-calendar-check w-8 text-blue-600"></i>
                     <span class="text-gray-600">Total Tours: <strong class="text-gray-900">{{ $guide->tours_count ?? 0 }}</strong></span>
@@ -96,6 +89,50 @@
                     <span class="text-gray-600">Joined: <strong class="text-gray-900">{{ $guide->created_at ? $guide->created_at->format('M Y') : 'N/A' }}</strong></span>
                 </div>
             </div>
+
+            <!-- Specializations -->
+            @if(isset($guide->specializations) && $guide->specializations)
+            <div class="border-t pt-4 mb-4">
+                <h4 class="text-sm font-semibold text-gray-800 mb-3 flex items-center">
+                    <i class="fas fa-star text-yellow-500 mr-2"></i>Specializations
+                </h4>
+                <div class="flex flex-wrap gap-2">
+                    @foreach(explode(',', $guide->specializations) as $spec)
+                    <span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
+                        {{ trim($spec) }}
+                    </span>
+                    @endforeach
+                </div>
+            </div>
+            @endif
+
+            <!-- Certifications -->
+            @if(isset($guide->certifications) && $guide->certifications)
+            <div class="border-t pt-4">
+                <h4 class="text-sm font-semibold text-gray-800 mb-3 flex items-center">
+                    <i class="fas fa-certificate text-green-600 mr-2"></i>Certifications
+                </h4>
+                <div class="space-y-2">
+                    @foreach(array_slice(explode("\n", $guide->certifications), 0, 3) as $cert)
+                        @if(trim($cert))
+                        <div class="flex items-start text-xs">
+                            <i class="fas fa-check-circle text-green-500 mr-2 mt-0.5"></i>
+                            <span class="text-gray-700 leading-relaxed">{{ trim($cert) }}</span>
+                        </div>
+                        @endif
+                    @endforeach
+                    
+                    @php
+                        $allCerts = array_filter(explode("\n", $guide->certifications), 'trim');
+                        $remainingCerts = count($allCerts) - 3;
+                    @endphp
+                    
+                    @if($remainingCerts > 0)
+                    <p class="text-xs text-gray-500 italic mt-2">+ {{ $remainingCerts }} more certification(s)</p>
+                    @endif
+                </div>
+            </div>
+            @endif
         </div>
     </div>
     

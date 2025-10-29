@@ -15,12 +15,18 @@ class Guide extends Model
         'languages',
         'phone',
         'hourly_rate',
-        'is_approved'
+        'is_approved',
+        'specializations',      
+        'certifications',       
+        'experience_years',     
+        'rating',               
     ];
 
     protected $casts = [
         'is_approved' => 'boolean',
-        'hourly_rate' => 'decimal:2'
+        'hourly_rate' => 'decimal:2',
+        'experience_years' => 'integer',
+        'rating' => 'decimal:1', 
     ];
 
     public function user()
