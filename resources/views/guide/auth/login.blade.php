@@ -61,7 +61,8 @@
                     type="email" 
                     id="email" 
                     name="email" 
-                    value="{{ old('email', 'ahmad.guide@velora.com') }}"
+                    value
+                    placeholder="Email"
                     class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
                     autofocus
@@ -77,7 +78,7 @@
                     id="password" 
                     name="password" 
                     class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Guide@123"
+                    placeholder="Password"
                     required
                 >
             </div>
@@ -120,15 +121,6 @@
                 &copy; 2025 Velora Tourism. All rights reserved.
             </p>
         </div>
-    </div>
-
-    <!-- Demo Info -->
-    <div class="fixed bottom-4 right-4 bg-white rounded-lg shadow-lg p-4 max-w-xs">
-        <p class="text-sm font-semibold text-gray-800 mb-2">
-            <i class="fas fa-info-circle text-blue-500 mr-2"></i>Demo Login
-        </p>
-        <p class="text-xs text-gray-600">Email: ahmad.guide@velora.com</p>
-        <p class="text-xs text-gray-600">Password: Guide@123</p>
     </div>
 
     <script>

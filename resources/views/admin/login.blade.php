@@ -41,7 +41,7 @@
                     name="email" 
                     value="{{ old('email') }}"
                     class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    placeholder="admin@velora.com"
+                    placeholder="Enter your Email"
                     required
                 >
             </div>
@@ -55,7 +55,7 @@
                     id="password" 
                     name="password" 
                     class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    placeholder="Enter your password"
+                    placeholder="Enter your Password"
                     required
                 >
             </div>
@@ -79,21 +79,23 @@
             </button>
         </form>
 
+        <!-- Guide Login Link -->
+        <div class="mt-6 pt-6 border-t border-gray-200 text-center">
+            <p class="text-sm text-gray-600">
+                Are you guide? 
+                <a href="{{ route('guide.login') }}" class="font-medium text-blue-600 hover:text-blue-500 transition-colors">
+                    Guide Login
+                </a>
+            </p>
+        </div>
+
         <!-- Footer -->
-        <div class="mt-8 text-center">
+        <div class="mt-6 text-center">
             <p class="text-xs text-gray-500">
                 &copy; 2025 Velora Tourism. All rights reserved.
             </p>
         </div>
     </div>
 
-    <!-- Demo Credentials Notice -->
-    <div class="fixed bottom-4 right-4 bg-white rounded-lg shadow-lg p-4 max-w-xs">
-        <p class="text-sm font-semibold text-gray-800 mb-2">
-            <i class="fas fa-info-circle text-blue-500 mr-2"></i>Demo Credentials
-        </p>
-        <p class="text-xs text-gray-600">Email: admin@velora.com</p>
-        <p class="text-xs text-gray-600">Password: admin123456</p>
-    </div>
 </body>
 </html>

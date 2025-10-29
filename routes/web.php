@@ -4,6 +4,12 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AdminAuthController;
+use App\Http\Controllers\Guide\GuideAuthController;
+use App\Http\Controllers\Guide\GuideController;
+use App\Http\Controllers\Guide\GuideBookingController;
+use App\Http\Controllers\Guide\GuideReviewController;
+use App\Http\Controllers\Guide\GuideProfileController;
+use App\Http\Controllers\GuidePublicController;
 
 /*
 |--------------------------------------------------------------------------
@@ -417,6 +423,11 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/bookings/{id}', [AdminController::class, 'showBooking'])->name('bookings.show');
         Route::put('/bookings/{id}/status', [AdminController::class, 'updateBookingStatus'])->name('bookings.updateStatus');
         Route::delete('/bookings/{id}', [AdminController::class, 'deleteBooking'])->name('bookings.delete');
+        
+        // ========================================
+        // Guide Velora Page
+        // ========================================
+        Route::get('/guide-velora', [AdminController::class, 'guideVelora'])->name('guide-velora');
     });
 });
 
@@ -424,20 +435,51 @@ Route::prefix('admin')->name('admin.')->group(function () {
 // GUIDE ROUTES
 // ========================================
 
-// Guide Routes
 Route::prefix('guide')->name('guide.')->group(function () {
     
-    // Authentication Routes
-    Route::get('/login', [App\Http\Controllers\Guide\GuideAuthController::class, 'showLoginForm'])->name('login');
-    Route::post('/login', [App\Http\Controllers\Guide\GuideAuthController::class, 'login'])->name('login.submit');
+    // ========================================
+    // Authentication Routes (No Auth Required)
+    // ========================================
+    Route::get('/login', [GuideAuthController::class, 'showLoginForm'])->name('login');
+    Route::post('/login', [GuideAuthController::class, 'login'])->name('login.submit');
     
-    // Protected Routes
+    // ========================================
+    // Protected Guide Routes (Require Auth)
+    // ========================================
     Route::middleware(['web', 'guide'])->group(function () {
-        Route::get('/', [App\Http\Controllers\Guide\GuideController::class, 'dashboard'])->name('dashboard');
-        Route::get('/bookings', [App\Http\Controllers\Guide\GuideController::class, 'bookings'])->name('bookings');
-        Route::get('/reviews', [App\Http\Controllers\Guide\GuideController::class, 'reviews'])->name('reviews');
-        Route::get('/profile', [App\Http\Controllers\Guide\GuideController::class, 'profile'])->name('profile');
-        Route::put('/profile', [App\Http\Controllers\Guide\GuideController::class, 'updateProfile'])->name('profile.update');
-        Route::post('/logout', [App\Http\Controllers\Guide\GuideAuthController::class, 'logout'])->name('logout');
+        
+        // Dashboard
+        Route::get('/dashboard', [GuideController::class, 'dashboard'])->name('dashboard');
+        
+        // ========================================
+        // Bookings Management
+        // ========================================
+        Route::get('/bookings', [GuideBookingController::class, 'index'])->name('bookings');
+        Route::get('/bookings/{id}/view', [GuideBookingController::class, 'view'])->name('bookings.view');
+        Route::get('/bookings/{id}/confirm', [GuideBookingController::class, 'confirm'])->name('bookings.confirm');
+        Route::get('/bookings/{id}/complete', [GuideBookingController::class, 'complete'])->name('bookings.complete');
+        Route::post('/bookings/{id}/cancel', [GuideBookingController::class, 'cancel'])->name('bookings.cancel');
+        
+        // ========================================
+        // Reviews Management
+        // ========================================
+        Route::get('/reviews', [GuideReviewController::class, 'index'])->name('reviews');
+        Route::post('/reviews/{id}/respond', [GuideReviewController::class, 'respond'])->name('reviews.respond');
+        
+        // ========================================
+        // Profile Management
+        // ========================================
+        Route::get('/profile', [GuideProfileController::class, 'index'])->name('profile');
+        Route::put('/profile', [GuideProfileController::class, 'update'])->name('profile.update');
+        Route::put('/password', [GuideProfileController::class, 'updatePassword'])->name('password.update');
+        Route::put('/expertise', [GuideProfileController::class, 'updateExpertise'])->name('expertise.update');
+        
+        // Public Guide Profile (accessible to everyone)
+        Route::get('/guides/{id}', [App\Http\Controllers\GuidePublicController::class, 'show'])->name('guides.show');
+
+        // ========================================
+        // Logout
+        // ========================================
+        Route::post('/logout', [GuideAuthController::class, 'logout'])->name('logout');
     });
 });

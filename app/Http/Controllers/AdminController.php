@@ -113,32 +113,77 @@ class AdminController extends Controller
     }
     
     public function updateUser(Request $request, $id)
-    {
-        try {
-            $user = User::findOrFail($id);
+{
+    try {
+        $user = User::findOrFail($id);
+        
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email,' . $id,
+            'role' => 'required|in:user,guide,admin',
+            'language' => 'required|in:en,ar',
+        ]);
+        
+        // تخزين الـ role القديم
+        $oldRole = $user->role;
+        $newRole = $validated['role'];
+        
+        // تحديث بيانات المستخدم
+        $user->update($validated);
+        
+        // إذا تم تحويل المستخدم من user إلى guide
+        if ($oldRole !== 'guide' && $newRole === 'guide') {
             
-            $validated = $request->validate([
-                'name' => 'required|string|max:255',
-                'email' => 'required|email|unique:users,email,' . $id,
-                'role' => 'required|in:user,guide,admin',
-                'language' => 'required|in:en,ar',
-            ]);
+            // التحقق من وجود ملف guide للمستخدم
+            $guide = Guide::where('user_id', $user->id)->first();
             
-            $user->update($validated);
-            
-            return redirect()->route('admin.users')
-                ->with('success', 'User updated successfully!');
+            if (!$guide) {
+                // إنشاء ملف guide جديد بمعلومات افتراضية
+                $guide = Guide::create([
+                    'user_id' => $user->id,
+                    'bio' => 'Professional tour guide',
+                    'languages' => 'Arabic, English',
+                    'phone' => '+970599000000',
+                    'hourly_rate' => 50.00,
+                    'is_approved' => false, // يحتاج موافقة الأدمن
+                ]);
                 
-        } catch (ValidationException $e) {
-            return redirect()->back()
-                ->withInput()
-                ->withErrors($e->errors());
-        } catch (\Exception $e) {
-            return redirect()->back()
-                ->withInput()
-                ->with('error', 'Failed to update user: ' . $e->getMessage());
+                return redirect()->route('admin.guides')
+                    ->with('success', 'User converted to Guide successfully! Please review and approve the guide profile.');
+            } else {
+                // إذا كان لديه ملف guide مسبقاً
+                return redirect()->route('admin.guides')
+                    ->with('success', 'User role updated to Guide successfully!');
+            }
         }
+        
+        // إذا تم تحويل المستخدم من guide إلى user
+        if ($oldRole === 'guide' && $newRole !== 'guide') {
+            // حذف ملف الـ guide (اختياري)
+            // أو يمكنك الإبقاء عليه وتعطيله فقط
+            $guide = Guide::where('user_id', $user->id)->first();
+            if ($guide) {
+                // خيار 1: حذف الملف
+                // $guide->delete();
+                
+                // خيار 2: تعطيل الموافقة فقط
+                $guide->update(['is_approved' => false]);
+            }
+        }
+        
+        return redirect()->route('admin.users')
+            ->with('success', 'User updated successfully!');
+            
+    } catch (ValidationException $e) {
+        return redirect()->back()
+            ->withInput()
+            ->withErrors($e->errors());
+    } catch (\Exception $e) {
+        return redirect()->back()
+            ->withInput()
+            ->with('error', 'Failed to update user: ' . $e->getMessage());
     }
+}
     
     public function deleteUser($id)
     {
@@ -641,5 +686,25 @@ class AdminController extends Controller
             return redirect()->back()
                 ->with('error', 'Failed to delete booking: ' . $e->getMessage());
         }
+    }
+
+    // ========================================
+    // GUIDE VELORA PAGE
+    // ========================================
+    
+    public function guideVelora()
+    {
+        // Gather statistics for the guide page
+        $stats = [
+            'total_guides' => Guide::count(),
+            'approved_guides' => Guide::where('is_approved', true)->count(),
+            'pending_guides' => Guide::where('is_approved', false)->count(),
+            'total_bookings' => Booking::count(),
+            'completed_bookings' => Booking::where('status', 'completed')->count(),
+            'total_reviews' => Review::whereNotNull('guide_id')->count(),
+            'average_rating' => Review::whereNotNull('guide_id')->avg('rating') ?? 0,
+        ];
+        
+        return view('admin.guide-velora', compact('stats'));
     }
 }

@@ -95,6 +95,14 @@
                             <button onclick="editUser({{ $user->id }})" class="text-green-600 hover:text-green-900 transition-colors" title="Edit">
                                 <i class="fas fa-edit"></i>
                             </button>
+                            
+                            <!-- زر تحويل إلى Guide -->
+                            @if($user->role === 'user')
+                            <button onclick="convertToGuide({{ $user->id }}, '{{ $user->name }}')" class="text-purple-600 hover:text-purple-900 transition-colors" title="Convert to Guide">
+                                <i class="fas fa-user-tie"></i>
+                            </button>
+                            @endif
+                            
                             @if($user->role !== 'admin')
                             <button onclick="confirmDelete({{ $user->id }}, '{{ $user->name }}')" class="text-red-600 hover:text-red-900 transition-colors" title="Delete">
                                 <i class="fas fa-trash"></i>
@@ -280,11 +288,20 @@
                             <i class="fas fa-user-tag mr-2"></i>Role
                         </label>
                         <select name="role" id="edit_role" required
-                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                            onchange="showGuideNotice(this.value)">
                             <option value="user">User</option>
                             <option value="guide">Guide</option>
                             <option value="admin">Admin</option>
                         </select>
+                        
+                        <!-- ملاحظة عند اختيار Guide -->
+                        <div id="guideNotice" class="hidden mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                            <p class="text-xs text-blue-800">
+                                <i class="fas fa-info-circle mr-1"></i>
+                                When you change role to "Guide", a guide profile will be created automatically and you will be redirected to Guides page.
+                            </p>
+                        </div>
                     </div>
                     
                     <div>
@@ -408,12 +425,78 @@ function editUser(userId) {
     document.getElementById('edit_role').value = role;
     document.getElementById('edit_language').value = language;
     
+    // إظهار الملاحظة إذا كان الـ role حالياً guide
+    showGuideNotice(role);
+    
     form.action = `/admin/users/${userId}`;
     modal.classList.remove('hidden');
 }
 
 function closeEditModal() {
     document.getElementById('editModal').classList.add('hidden');
+}
+
+function showGuideNotice(role) {
+    const notice = document.getElementById('guideNotice');
+    if (role === 'guide') {
+        notice.classList.remove('hidden');
+    } else {
+        notice.classList.add('hidden');
+    }
+}
+
+function convertToGuide(userId, userName) {
+    if (confirm(`Convert "${userName}" to a Tour Guide?`)) {
+        // إنشاء form مخفي للتحويل
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/admin/users/${userId}`;
+        
+        const csrfToken = document.createElement('input');
+        csrfToken.type = 'hidden';
+        csrfToken.name = '_token';
+        csrfToken.value = '{{ csrf_token() }}';
+        form.appendChild(csrfToken);
+        
+        const methodField = document.createElement('input');
+        methodField.type = 'hidden';
+        methodField.name = '_method';
+        methodField.value = 'PUT';
+        form.appendChild(methodField);
+        
+        const roleField = document.createElement('input');
+        roleField.type = 'hidden';
+        roleField.name = 'role';
+        roleField.value = 'guide';
+        form.appendChild(roleField);
+        
+        // نسخ باقي البيانات من الصف
+        const row = document.querySelector(`tr[data-user-id="${userId}"]`);
+        const name = row.querySelector('[data-name]').getAttribute('data-name');
+        const email = row.querySelector('[data-email]').getAttribute('data-email');
+        const language = row.querySelector('[data-language]').getAttribute('data-language');
+        
+        const nameField = document.createElement('input');
+        nameField.type = 'hidden';
+        nameField.name = 'name';
+        nameField.value = name;
+        form.appendChild(nameField);
+        
+        const emailField = document.createElement('input');
+        emailField.type = 'hidden';
+        emailField.name = 'email';
+        emailField.value = email;
+        form.appendChild(emailField);
+        
+        const langField = document.createElement('input');
+        langField.type = 'hidden';
+        langField.name = 'language';
+        langField.value = language;
+        form.appendChild(langField);
+        
+        document.body.appendChild(form);
+        form.submit();
+    }
 }
 
 function confirmDelete(userId, userName) {
