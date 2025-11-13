@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Trip;
 use App\Models\Site;
+use App\Models\Booking;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Auth;
@@ -75,7 +76,14 @@ class TripController extends Controller
             'end_date' => 'required|date|after_or_equal:start_date',
             'description' => 'nullable|string|max:1000',
             'sites' => 'required|array|min:1',
-            'sites.*' => 'integer|exists:sites,id'
+            'sites.*' => 'integer|exists:sites,id',
+            'price' => 'nullable|numeric|min:0',
+            'guide_name' => 'nullable|string|max:255',
+            'guide_id' => 'nullable|exists:guides,id',
+            'distance' => 'nullable|numeric|min:0',
+            'duration' => 'nullable|string|max:255',
+            'activities' => 'nullable|array',
+            'activities.*' => 'string|max:255'
         ]);
 
         if ($validator->fails()) {
@@ -89,14 +97,18 @@ class TripController extends Controller
         // Remove duplicate site IDs
         $siteIds = array_unique($request->sites);
 
-        // Verify all sites exist
-        $existingSites = Site::whereIn('id', $siteIds)->pluck('id')->toArray();
+        // Verify all sites exist and are of type route or camping
+        $existingSites = Site::whereIn('id', $siteIds)
+            ->whereIn('type', ['route', 'camping'])
+            ->pluck('id')
+            ->toArray();
+        
         $invalidSites = array_diff($siteIds, $existingSites);
 
         if (!empty($invalidSites)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Some sites do not exist: ' . implode(', ', $invalidSites)
+                'message' => 'Trips can only include routes and camping sites. Some selected sites are not valid for trips.'
             ], 422);
         }
 
@@ -106,6 +118,28 @@ class TripController extends Controller
             'start_date' => $request->start_date,
             'end_date' => $request->end_date,
             'description' => $request->description,
+            'sites' => $siteIds,
+            'price' => $request->price,
+            'guide_name' => $request->guide_name,
+            'guide_id' => $request->guide_id,
+            'distance' => $request->distance,
+            'duration' => $request->duration,
+            'activities' => $request->activities
+        ]);
+
+        // إنشاء Booking تلقائياً عند إنشاء Trip
+        // يتم إنشاء Booking دائماً عند إنشاء Trip (حتى بدون guide_id أو price)
+        Booking::create([
+            'user_id' => $trip->user_id,
+            'trip_id' => $trip->id,
+            'guide_id' => $trip->guide_id, // يمكن أن يكون null
+            'booking_date' => $trip->start_date,
+            'start_time' => '09:00:00', // وقت افتراضي
+            'end_time' => '17:00:00', // وقت افتراضي
+            'total_price' => $trip->price ?? 0,
+            'status' => 'pending',
+            'notes' => 'تم إنشاء الحجز تلقائياً من الرحلة: ' . $trip->trip_name . 
+                      ($trip->description ? ' - ' . $trip->description : ''),
             'sites' => $siteIds
         ]);
 
@@ -172,7 +206,14 @@ class TripController extends Controller
             'end_date' => $isUpcoming ? 'date|after_or_equal:start_date' : 'prohibited',
             'description' => 'nullable|string|max:1000',
             'sites' => $isUpcoming ? 'array|min:1' : 'prohibited',
-            'sites.*' => $isUpcoming ? 'integer|exists:sites,id' : 'prohibited'
+            'sites.*' => $isUpcoming ? 'integer|exists:sites,id' : 'prohibited',
+            'price' => 'nullable|numeric|min:0',
+            'guide_name' => 'nullable|string|max:255',
+            'guide_id' => 'nullable|exists:guides,id',
+            'distance' => 'nullable|numeric|min:0',
+            'duration' => 'nullable|string|max:255',
+            'activities' => 'nullable|array',
+            'activities.*' => 'string|max:255'
         ]);
 
         if ($validator->fails()) {
@@ -182,6 +223,17 @@ class TripController extends Controller
                 'errors' => $validator->errors()
             ], 422);
         }
+
+        $updateData = $request->only([
+            'trip_name', 
+            'description',
+            'price',
+            'guide_name',
+            'guide_id',
+            'distance',
+            'duration',
+            'activities'
+        ]);
 
         $updateData = $request->only(['trip_name', 'description']);
 
@@ -196,13 +248,18 @@ class TripController extends Controller
             
             if ($request->has('sites')) {
                 $siteIds = array_unique($request->sites);
-                $existingSites = Site::whereIn('id', $siteIds)->pluck('id')->toArray();
+                // Verify all sites exist and are of type route or camping
+                $existingSites = Site::whereIn('id', $siteIds)
+                    ->whereIn('type', ['route', 'camping'])
+                    ->pluck('id')
+                    ->toArray();
+                
                 $invalidSites = array_diff($siteIds, $existingSites);
 
                 if (!empty($invalidSites)) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'Some sites do not exist: ' . implode(', ', $invalidSites)
+                        'message' => 'Trips can only include routes and camping sites. Some selected sites are not valid for trips.'
                     ], 422);
                 }
 
@@ -292,6 +349,16 @@ class TripController extends Controller
         }
 
         $siteId = $request->site_id;
+        
+        // Verify the site is of type route or camping
+        $site = Site::find($siteId);
+        if (!$site || !in_array($site->type, ['route', 'camping'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Trips can only include routes and camping sites.'
+            ], 422);
+        }
+        
         $currentSites = $trip->sites;
 
         if (in_array($siteId, $currentSites)) {
@@ -457,17 +524,24 @@ class TripController extends Controller
             $visitedTypes = $visitedSites->pluck('type')->unique()->toArray();
         }
 
-        // Recommend sites of similar types that user hasn't visited
+        // Recommend sites of similar types that user hasn't visited (only route and camping)
         $recommendedSites = Site::whereNotIn('id', $visitedSiteIds)
+            ->whereIn('type', ['route', 'camping'])
             ->when(!empty($visitedTypes), function($query) use ($visitedTypes) {
-                return $query->whereIn('type', $visitedTypes);
+                // Filter visited types to only route and camping
+                $validTypes = array_intersect($visitedTypes, ['route', 'camping']);
+                if (!empty($validTypes)) {
+                    return $query->whereIn('type', $validTypes);
+                }
+                return $query;
             })
             ->limit(10)
             ->get();
 
-        // If not enough recommendations, add popular sites
+        // If not enough recommendations, add popular route and camping sites
         if ($recommendedSites->count() < 5) {
             $additionalSites = Site::whereNotIn('id', array_merge($visitedSiteIds, $recommendedSites->pluck('id')->toArray()))
+                ->whereIn('type', ['route', 'camping'])
                 ->limit(5)
                 ->get();
             

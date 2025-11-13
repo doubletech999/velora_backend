@@ -405,6 +405,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         // Trips Management
         // ========================================
         Route::get('/trips', [AdminController::class, 'trips'])->name('trips');
+        Route::post('/trips', [AdminController::class, 'createTrip'])->name('trips.create');
         Route::get('/trips/{id}', [AdminController::class, 'showTrip'])->name('trips.show');
         Route::get('/trips/{id}/edit', [AdminController::class, 'editTrip'])->name('trips.edit');
         Route::put('/trips/{id}', [AdminController::class, 'updateTrip'])->name('trips.update');

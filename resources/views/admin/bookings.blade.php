@@ -134,9 +134,23 @@
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         @php
-                            $startTime = \Carbon\Carbon::createFromFormat('H:i:s', $booking->start_time);
-                            $endTime = \Carbon\Carbon::createFromFormat('H:i:s', $booking->end_time);
-                            $duration = $startTime->diffInHours($endTime);
+                            $duration = 0;
+                            if ($booking->start_time && $booking->end_time) {
+                                try {
+                                    $startTime = \Carbon\Carbon::createFromFormat('H:i:s', $booking->start_time);
+                                    $endTime = \Carbon\Carbon::createFromFormat('H:i:s', $booking->end_time);
+                                    $duration = $startTime->diffInHours($endTime);
+                                } catch (\Exception $e) {
+                                    // Try alternative format if H:i:s fails
+                                    try {
+                                        $startTime = \Carbon\Carbon::parse($booking->start_time);
+                                        $endTime = \Carbon\Carbon::parse($booking->end_time);
+                                        $duration = $startTime->diffInHours($endTime);
+                                    } catch (\Exception $e2) {
+                                        $duration = 0;
+                                    }
+                                }
+                            }
                         @endphp
                         <span data-duration="{{ $duration }}">{{ $duration }} hour{{ $duration > 1 ? 's' : '' }}</span>
                     </td>
