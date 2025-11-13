@@ -11,6 +11,7 @@ use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable implements MustVerifyEmail
 {
+    use HasApiTokens, HasFactory, Notifiable;
     use HasApiTokens, HasFactory, Notifiable, MustVerifyEmailTrait;
 
     /**
@@ -25,6 +26,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'password',
         'role',
         'language',
+        'fcm_token',
     ];
 
     /**

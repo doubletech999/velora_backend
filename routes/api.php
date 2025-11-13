@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\GuideController;
 use App\Http\Controllers\Api\TripController;
 use App\Http\Controllers\Api\ReviewController;
 use App\Http\Controllers\Api\BookingController;
+use App\Http\Controllers\Api\NotificationController;
 
 /*
 |--------------------------------------------------------------------------
@@ -36,6 +37,20 @@ Route::get('/test', function () {
 // Public routes (no authentication required)
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
+Route::get('/email/verify/{id}/{hash}', [AuthController::class, 'verifyEmail'])
+    ->middleware('signed')
+    ->name('verification.verify');
+Route::post('/email/resend', [AuthController::class, 'resendVerification']);
+
+// ========================================
+// Sites Routes (Public - يمكن للجميع عرض المواقع)
+// ========================================
+Route::get('/sites', [SiteController::class, 'index']); // عرض جميع المواقع (public)
+Route::get('/sites/{id}', [SiteController::class, 'show']); // عرض موقع محدد (public)
+Route::get('/activities', [SiteController::class, 'activities']); // عرض قائمة الأنشطة مع العدد (public)
+
+// Protected routes (authentication required)
+Route::middleware('auth:sanctum')->group(function () {
 
 // Protected routes (authentication required)
 // Note: user.verified middleware only enforces verification for regular users (role='user')
@@ -47,6 +62,18 @@ Route::middleware(['auth:sanctum', 'user.verified'])->group(function () {
     // ========================================
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/user', [AuthController::class, 'user']);
+    
+    // ========================================
+    // Notification Routes
+    // ========================================
+    Route::post('/notifications/update-token', [NotificationController::class, 'updateToken']);
+    
+    // ========================================
+    // Sites Routes (Protected - فقط للمستخدمين المسجلين)
+    // ========================================
+    Route::post('/sites', [SiteController::class, 'store']); // إضافة موقع (protected)
+    Route::put('/sites/{id}', [SiteController::class, 'update']); // تحديث موقع (protected)
+    Route::delete('/sites/{id}', [SiteController::class, 'destroy']); // حذف موقع (protected)
     Route::post('/email/resend-verification', [AuthController::class, 'resendVerification'])
         ->name('api.verification.resend');
     
@@ -168,4 +195,3 @@ Route::middleware(['auth:sanctum', 'user.verified'])->group(function () {
 | POST   /api/trips/{id}/sites                   - Add site to trip
 | DELETE /api/trips/{id}/sites                   - Remove site from trip
 |
-*/

@@ -287,6 +287,17 @@ class AdminController extends Controller
             
             $site = Site::create($validated);
             
+            // Send notification if route or camping is created
+            if (in_array($site->type, ['route', 'camping'])) {
+                try {
+                    $notificationService = app(\App\Services\FirebaseNotificationService::class);
+                    $notificationService->notifyNewRouteOrCamping($site);
+                } catch (\Exception $e) {
+                    // Log error but don't fail the request
+                    \Log::error('Failed to send notification for new route/camping: ' . $e->getMessage());
+                }
+            }
+            
             return redirect()->route('admin.sites')
                 ->with('success', 'Site "' . $site->name . '" created successfully!');
                 

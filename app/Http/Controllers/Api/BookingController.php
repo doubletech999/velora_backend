@@ -284,7 +284,20 @@ class BookingController extends Controller
             $booking->update($updateData);
         } elseif ($user->guide && $booking->guide_id === $user->guide->id) {
             // Guide updating status
+            $oldStatus = $booking->status;
             $booking->update(['status' => $request->status]);
+            
+            // Send notification if status changed to confirmed and booking has a trip
+            if ($oldStatus !== 'confirmed' && $request->status === 'confirmed' && $booking->trip) {
+                try {
+                    $booking->load(['user', 'trip']);
+                    $notificationService = app(\App\Services\FirebaseNotificationService::class);
+                    $notificationService->notifyTripAccepted($booking->user, $booking->trip);
+                } catch (\Exception $e) {
+                    // Log error but don't fail the request
+                    \Log::error('Failed to send notification for trip acceptance: ' . $e->getMessage());
+                }
+            }
         }
 
         $booking->load(['user', 'guide.user']);
@@ -360,7 +373,18 @@ class BookingController extends Controller
         }
 
         $booking->update(['status' => 'confirmed']);
-        $booking->load(['user', 'guide.user']);
+        $booking->load(['user', 'guide.user', 'trip']);
+
+        // Send notification to user when booking is confirmed
+        if ($booking->trip) {
+            try {
+                $notificationService = app(\App\Services\FirebaseNotificationService::class);
+                $notificationService->notifyTripAccepted($booking->user, $booking->trip);
+            } catch (\Exception $e) {
+                // Log error but don't fail the request
+                \Log::error('Failed to send notification for trip acceptance: ' . $e->getMessage());
+            }
+        }
 
         return response()->json([
             'success' => true,
@@ -436,3 +460,4 @@ class BookingController extends Controller
                $booking->status === 'pending';
     }
 }
+

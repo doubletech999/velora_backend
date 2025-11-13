@@ -102,6 +102,18 @@ class GuideBookingController extends Controller
             ->findOrFail($id);
         
         $booking->update(['status' => 'confirmed']);
+        $booking->load(['user', 'trip']);
+        
+        // Send notification to user when booking is confirmed
+        if ($booking->trip) {
+            try {
+                $notificationService = app(\App\Services\FirebaseNotificationService::class);
+                $notificationService->notifyTripAccepted($booking->user, $booking->trip);
+            } catch (\Exception $e) {
+                // Log error but don't fail the request
+                \Log::error('Failed to send notification for trip acceptance: ' . $e->getMessage());
+            }
+        }
         
         return redirect()->route('guide.bookings')
             ->with('success', 'Booking confirmed successfully!');
