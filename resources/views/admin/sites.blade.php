@@ -57,12 +57,12 @@ console.log('Modal functions defined at page top');
 </div>
 @endif
 
-<div class="bg-white rounded-lg shadow-md">
+<div class="bg-white rounded-lg shadow-sm border border-gray-200">
     <!-- Header -->
-    <div class="p-6 border-b border-gray-200">
-        <div class="flex items-center justify-between mb-4">
-            <h3 class="text-xl font-bold text-gray-800">Content Management</h3>
-            <button type="button" id="addContentBtn" onclick="window.openAddSiteModal(); return false;" class="bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-lg transition-colors shadow-md hover:shadow-lg flex items-center cursor-pointer">
+    <div class="p-5 border-b border-gray-200">
+        <div class="flex items-center justify-between">
+            <h3 class="text-xl font-semibold text-gray-900">Content Management</h3>
+            <button type="button" id="addContentBtn" onclick="window.openAddSiteModal(); return false;" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center text-sm font-medium">
                 <i class="fas fa-plus mr-2"></i>Add New Content
             </button>
         </div>
@@ -94,19 +94,19 @@ console.log('Modal functions defined at page top');
     <!-- Sites Table -->
     <div class="overflow-x-auto">
         <table class="w-full divide-y divide-gray-200">
-            <thead class="bg-gradient-to-r from-gray-50 to-gray-100">
+            <thead class="bg-gray-50">
                 <tr>
-                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">ID</th>
-                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Name</th>
-                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Type</th>
-                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Location</th>
-                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Created</th>
-                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Actions</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
             </thead>
-            <tbody class="bg-white divide-y divide-gray-200">
+            <tbody class="bg-white divide-y divide-gray-100">
                 @forelse($sites as $site)
-                <tr class="hover:bg-gray-50 transition-colors {{ $site->type === 'hotel' ? 'bg-orange-50' : ($site->type === 'restaurant' ? 'bg-green-50' : '') }}" 
+                <tr class="table-row-hover {{ $site->type === 'hotel' ? 'bg-orange-50/50' : ($site->type === 'restaurant' ? 'bg-green-50/50' : '') }}" 
                     data-site-id="{{ $site->id }}"
                     data-name="{{ $site->name }}"
                     data-description="{{ $site->description }}"
@@ -135,28 +135,18 @@ console.log('Modal functions defined at page top');
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
                         @if($site->type === 'hotel')
-                            <span class="inline-flex px-3 py-1 text-xs font-bold rounded-full bg-orange-100 text-orange-800 border border-orange-300">
-                                <i class="fas fa-hotel mr-1"></i>Hotel
-                                <span class="ml-1 text-xs bg-orange-200 px-1 rounded">Primary</span>
+                            <span class="inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-md bg-orange-100 text-orange-800">
+                                <i class="fas fa-hotel mr-1.5"></i>Hotel
                             </span>
                         @elseif($site->type === 'restaurant')
-                            <span class="inline-flex px-3 py-1 text-xs font-bold rounded-full bg-green-100 text-green-800 border border-green-300">
-                                <i class="fas fa-utensils mr-1"></i>Restaurant
-                                <span class="ml-1 text-xs bg-green-200 px-1 rounded">Primary</span>
+                            <span class="inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-md bg-green-100 text-green-800">
+                                <i class="fas fa-utensils mr-1.5"></i>Restaurant
                             </span>
                         @else
-                            <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-700">
-                                <i class="fas fa-map-marker-alt mr-1"></i>Site
-                                <span class="ml-1 text-xs bg-gray-200 px-1 rounded">Secondary</span>
+                            <span class="inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-md bg-gray-100 text-gray-700">
+                                <i class="fas fa-map-marker-alt mr-1.5"></i>Site
                             </span>
                         @endif
-                        <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full 
-                            @if($site->type === 'site') bg-blue-100 text-blue-800
-                            @elseif($site->type === 'hotel') bg-green-100 text-green-800
-                            @elseif($site->type === 'restaurant') bg-purple-100 text-purple-800
-                            @else bg-gray-100 text-gray-800 @endif">
-                            {{ ucfirst($site->type) }}
-                        </span>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {{ number_format($site->latitude, 4) }}, {{ number_format($site->longitude, 4) }}
@@ -206,10 +196,10 @@ console.log('Modal functions defined at page top');
 
 <!-- Add Site Modal -->
 <div id="addSiteModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-    <div class="relative top-10 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white">
+    <div class="relative top-10 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-lg bg-white">
         <div class="mt-3">
             <div class="flex items-center justify-between mb-4">
-                <h3 class="text-lg font-bold text-gray-900">
+                <h3 class="text-lg font-semibold text-gray-900">
                     <i class="fas fa-map-marker-alt mr-2 text-green-600"></i>Add New Site
                 </h3>
                 <button type="button" onclick="window.closeAddSiteModal()" class="text-gray-500 hover:text-gray-700">
@@ -342,10 +332,10 @@ console.log('Modal functions defined at page top');
 
 <!-- View Site Modal -->
 <div id="viewSiteModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-lg bg-white">
         <div class="mt-3">
             <div class="flex items-center justify-between mb-4">
-                <h3 class="text-lg font-bold text-gray-900">Site Details</h3>
+                <h3 class="text-lg font-semibold text-gray-900">Site Details</h3>
                 <button onclick="closeViewSiteModal()" class="text-gray-500 hover:text-gray-700">
                     <i class="fas fa-times"></i>
                 </button>
@@ -359,10 +349,10 @@ console.log('Modal functions defined at page top');
 
 <!-- Edit Site Modal -->
 <div id="editSiteModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-    <div class="relative top-10 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white">
+    <div class="relative top-10 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-lg bg-white">
         <div class="mt-3">
             <div class="flex items-center justify-between mb-4">
-                <h3 class="text-lg font-bold text-gray-900">Edit Site</h3>
+                <h3 class="text-lg font-semibold text-gray-900">Edit Site</h3>
                 <button onclick="closeEditSiteModal()" class="text-gray-500 hover:text-gray-700">
                     <i class="fas fa-times"></i>
                 </button>
@@ -499,26 +489,26 @@ console.log('Modal functions defined at page top');
 
 <!-- Delete Confirmation Modal -->
 <div id="deleteSiteModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-lg bg-white">
         <div class="mt-3">
             <div class="flex items-center justify-center w-12 h-12 mx-auto bg-red-100 rounded-full">
-                <i class="fas fa-exclamation-triangle text-red-600 text-2xl"></i>
+                <i class="fas fa-exclamation-triangle text-red-600 text-xl"></i>
             </div>
-            <h3 class="text-lg font-bold text-gray-900 mt-4 text-center">Delete Site</h3>
+            <h3 class="text-lg font-semibold text-gray-900 mt-4 text-center">Delete Site</h3>
             <div class="mt-2 px-7 py-3">
                 <p class="text-sm text-gray-500 text-center" id="deleteSiteMessage">
                     Are you sure you want to delete this site?
                 </p>
             </div>
-            <div class="flex items-center justify-center gap-4 px-4 py-3">
-                <button onclick="closeDeleteSiteModal()" class="px-4 py-2 bg-gray-300 text-gray-800 text-base font-medium rounded-md hover:bg-gray-400">
+            <div class="flex items-center justify-center gap-3 px-4 py-3">
+                <button onclick="closeDeleteSiteModal()" class="px-4 py-2 bg-gray-200 text-gray-800 text-sm font-medium rounded-lg hover:bg-gray-300 transition-colors">
                     Cancel
                 </button>
                 <form id="deleteSiteForm" method="POST" class="inline">
                     @csrf
                     @method('DELETE')
-                    <button type="submit" class="px-4 py-2 bg-red-600 text-white text-base font-medium rounded-md hover:bg-red-700">
-                        Delete
+                    <button type="submit" class="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors">
+                        <i class="fas fa-trash mr-2"></i>Delete
                     </button>
                 </form>
             </div>
@@ -679,7 +669,6 @@ function viewSite(siteId) {
     }
     
     html += `
-    let html = `
         <div class="border-b pb-3">
             <p class="text-xs text-gray-500">Name</p>
             <p class="text-sm font-medium">${name}</p>
@@ -766,6 +755,9 @@ function viewSite(siteId) {
         <div class="border-b pb-3">
             <p class="text-xs text-gray-500">Working Hours</p>
             <p class="text-sm font-medium">${workingHours}</p>
+        </div>
+        `;
+    }
     
     if (price) {
         html += `

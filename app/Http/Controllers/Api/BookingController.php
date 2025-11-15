@@ -5,9 +5,11 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\Guide;
+use App\Services\FCMNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 
 class BookingController extends Controller
@@ -18,14 +20,20 @@ class BookingController extends Controller
     public function index(Request $request)
     {
         $user = Auth::user();
-        $query = Booking::with(['user', 'guide.user']);
-
-        // If user is a guide, show bookings for their guide profile
-        if ($user->role === 'guide' && $user->guide) {
-            $query->where('guide_id', $user->guide->id);
+        
+        // Check if user is admin
+        if ($user->role === 'admin') {
+            $query = Booking::with(['user', 'guide.user', 'site']);
         } else {
-            // If regular user, show their bookings
-            $query->where('user_id', $user->id);
+            $query = Booking::with(['user', 'guide.user', 'site']);
+
+            // If user is a guide, show bookings for their guide profile
+            if ($user->role === 'guide' && $user->guide) {
+                $query->where('guide_id', $user->guide->id);
+            } else {
+                // If regular user, show their bookings
+                $query->where('user_id', $user->id);
+            }
         }
 
         // Filter by status
@@ -47,12 +55,11 @@ class BookingController extends Controller
             $query->where('booking_date', '>=', now()->format('Y-m-d'));
         }
 
-        $bookings = $query->orderBy('booking_date', 'desc')
-                          ->orderBy('start_time', 'desc')
-                          ->paginate(10);
+        $bookings = $query->orderBy('created_at', 'desc')
+                          ->paginate(20);
 
         return response()->json([
-            'success' => true,
+            'status' => 'success',
             'data' => $bookings
         ]);
     }
@@ -63,97 +70,98 @@ class BookingController extends Controller
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'guide_id' => 'required|exists:guides,id',
+            'guide_id' => 'nullable|exists:guides,id',
+            'path_id' => 'required|string',
+            'site_id' => 'nullable|string',
             'booking_date' => 'required|date|after_or_equal:today',
-            'start_time' => ['required', 'regex:/^([0-1]?[0-9]|2[0-3]):[0-5][0-9](:([0-5][0-9]))?$/'],
-            'end_time' => ['required', 'regex:/^([0-1]?[0-9]|2[0-3]):[0-5][0-9](:([0-5][0-9]))?$/', 'after:start_time'],
-            'total_price' => 'nullable|numeric|min:0',
-            'notes' => 'nullable|string|max:500'
+            'start_time' => 'required|date_format:H:i:s',
+            'end_time' => 'required|date_format:H:i:s|after:start_time',
+            'total_price' => 'required|numeric|min:0',
+            'number_of_participants' => 'required|integer|min:1',
+            'payment_method' => 'required|in:cash,visa',
+            'notes' => 'nullable|string|max:1000'
         ]);
 
         if ($validator->fails()) {
             return response()->json([
-                'success' => false,
-                'message' => 'Validation errors',
+                'status' => 'error',
+                'message' => 'The given data was invalid.',
                 'errors' => $validator->errors()
             ], 422);
         }
 
-        // Get the guide
-        $guide = Guide::with('user')->find($request->guide_id);
-
-        if (!$guide->is_approved) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Guide is not approved for bookings'
-            ], 422);
-        }
-
-        // Check if user is trying to book their own guide profile
-        if (Auth::id() === $guide->user_id) {
-            return response()->json([
-                'success' => false,
-                'message' => 'You cannot book your own guide services'
-            ], 422);
-        }
-
-        // Normalize time format (remove seconds if present)
-        $startTimeStr = strlen($request->start_time) > 5 
-            ? substr($request->start_time, 0, 5) 
-            : $request->start_time;
-        $endTimeStr = strlen($request->end_time) > 5 
-            ? substr($request->end_time, 0, 5) 
-            : $request->end_time;
+        // Get user_id from token or request
+        $userId = $request->user()?->id ?? $request->input('user_id');
         
-        // Validate booking time (must be during business hours: 9 AM - 6 PM)
-        $startHour = Carbon::createFromFormat('H:i', $startTimeStr)->hour;
-        $endHour = Carbon::createFromFormat('H:i', $endTimeStr)->hour;
-
-        if ($startHour < 9 || $endHour > 18 || $startHour >= $endHour) {
+        if (!$userId) {
             return response()->json([
-                'success' => false,
-                'message' => 'Booking time must be between 9:00 AM and 6:00 PM'
+                'status' => 'error',
+                'message' => 'User ID is required.'
             ], 422);
         }
 
-        // Check for conflicting bookings
-        $conflictingBooking = Booking::where('guide_id', $request->guide_id)
-            ->where('booking_date', $request->booking_date)
-            ->where('status', '!=', 'cancelled')
-            ->where(function($query) use ($startTimeStr, $endTimeStr) {
-                $query->whereBetween('start_time', [$startTimeStr, $endTimeStr])
-                      ->orWhereBetween('end_time', [$startTimeStr, $endTimeStr])
-                      ->orWhere(function($q) use ($startTimeStr, $endTimeStr) {
-                          $q->where('start_time', '<=', $startTimeStr)
-                            ->where('end_time', '>=', $endTimeStr);
-                      });
-            })
-            ->first();
+        // Get the guide (optional - may not be required for route/camping bookings)
+        $guide = null;
+        if ($request->guide_id) {
+            $guide = Guide::with('user')->find($request->guide_id);
+            
+            if (!$guide) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Guide not found'
+                ], 404);
+            }
 
-        if ($conflictingBooking) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Guide is not available during the selected time slot'
-            ], 409);
+            if (!$guide->is_approved) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Guide is not approved for bookings'
+                ], 422);
+            }
+
+            // Check if user is trying to book their own guide profile
+            if ($userId === $guide->user_id) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'You cannot book your own guide services'
+                ], 422);
+            }
         }
 
-        // Calculate total hours and price
-        $startTime = Carbon::createFromFormat('H:i', $startTimeStr);
-        $endTime = Carbon::createFromFormat('H:i', $endTimeStr);
-        $duration = $endTime->diffInHours($startTime);
-        
-        // Use provided total_price if available, otherwise calculate from hourly_rate
-        $totalPrice = $request->has('total_price') && $request->total_price > 0 
-            ? $request->total_price 
-            : ($duration * $guide->hourly_rate);
+        // Check for conflicting bookings (only if guide_id is provided)
+        if ($request->guide_id) {
+            $conflictingBooking = Booking::where('guide_id', $request->guide_id)
+                ->where('booking_date', $request->booking_date)
+                ->where('status', '!=', 'cancelled')
+                ->where(function($query) use ($request) {
+                    $query->whereBetween('start_time', [$request->start_time, $request->end_time])
+                          ->orWhereBetween('end_time', [$request->start_time, $request->end_time])
+                          ->orWhere(function($q) use ($request) {
+                              $q->where('start_time', '<=', $request->start_time)
+                                ->where('end_time', '>=', $request->end_time);
+                          });
+                })
+                ->first();
+
+            if ($conflictingBooking) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Guide is not available during the selected time slot'
+                ], 409);
+            }
+        }
 
         $booking = Booking::create([
-            'user_id' => Auth::id(),
+            'user_id' => $userId,
             'guide_id' => $request->guide_id,
+            'path_id' => $request->path_id,
+            'site_id' => $request->site_id ?? $request->path_id,
             'booking_date' => $request->booking_date,
-            'start_time' => $startTimeStr . ':00', // Store as H:i:s format
-            'end_time' => $endTimeStr . ':00', // Store as H:i:s format
-            'total_price' => $totalPrice,
+            'start_time' => $request->start_time,
+            'end_time' => $request->end_time,
+            'total_price' => $request->total_price,
+            'number_of_participants' => $request->number_of_participants,
+            'payment_method' => $request->payment_method,
             'status' => 'pending',
             'notes' => $request->notes
         ]);
@@ -161,13 +169,9 @@ class BookingController extends Controller
         $booking->load(['user', 'guide.user']);
 
         return response()->json([
-            'success' => true,
-            'message' => 'Booking created successfully',
-            'data' => [
-                'booking' => $booking,
-                'duration_hours' => $duration,
-                'hourly_rate' => $guide->hourly_rate
-            ]
+            'status' => 'success',
+            'message' => 'تم إنشاء الحجز بنجاح',
+            'data' => $booking
         ], 201);
     }
 
@@ -287,15 +291,14 @@ class BookingController extends Controller
             $oldStatus = $booking->status;
             $booking->update(['status' => $request->status]);
             
-            // Send notification if status changed to confirmed and booking has a trip
-            if ($oldStatus !== 'confirmed' && $request->status === 'confirmed' && $booking->trip) {
+            // Send notification if status changed to confirmed
+            if ($oldStatus !== 'confirmed' && $request->status === 'confirmed') {
                 try {
-                    $booking->load(['user', 'trip']);
-                    $notificationService = app(\App\Services\FirebaseNotificationService::class);
-                    $notificationService->notifyTripAccepted($booking->user, $booking->trip);
+                    $booking->load(['user']);
+                    $notificationService = app(FCMNotificationService::class);
+                    $notificationService->sendBookingConfirmationNotification($booking);
                 } catch (\Exception $e) {
-                    // Log error but don't fail the request
-                    \Log::error('Failed to send notification for trip acceptance: ' . $e->getMessage());
+                    Log::error('Failed to send notification for trip acceptance: ' . $e->getMessage());
                 }
             }
         }
@@ -350,6 +353,86 @@ class BookingController extends Controller
     }
 
     /**
+     * Update booking status (Admin only)
+     */
+    public function updateStatus(Request $request, $id)
+    {
+        // Check if user is admin
+        $user = Auth::user();
+        if (!$user || $user->role !== 'admin') {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Unauthorized. Admin access required.'
+            ], 403);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'status' => 'required|in:pending,confirmed,rejected,cancelled,completed'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Invalid status',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $booking = Booking::with('user')->findOrFail($id);
+        $oldStatus = $booking->status;
+        $booking->status = $request->status;
+        $booking->save();
+
+        // Send FCM notification when booking is confirmed
+        if ($request->status === 'confirmed' && $oldStatus !== 'confirmed') {
+            try {
+                $notificationService = app(FCMNotificationService::class);
+                $notificationService->sendBookingConfirmationNotification($booking);
+            } catch (\Exception $e) {
+                Log::error('Failed to send booking confirmation notification: ' . $e->getMessage());
+            }
+        }
+
+        // Send FCM notification when booking is rejected
+        if ($request->status === 'rejected' && $oldStatus !== 'rejected') {
+            try {
+                $notificationService = app(FCMNotificationService::class);
+                $notificationService->sendBookingRejectionNotification($booking);
+            } catch (\Exception $e) {
+                Log::error('Failed to send booking rejection notification: ' . $e->getMessage());
+            }
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'تم تحديث حالة الحجز بنجاح',
+            'data' => $booking
+        ]);
+    }
+
+    /**
+     * Get my bookings
+     */
+    public function myBookings(Request $request)
+    {
+        $user = Auth::user();
+        $query = Booking::with(['user', 'guide.user', 'site'])
+            ->where('user_id', $user->id);
+
+        // Filter by status
+        if ($request->has('status')) {
+            $query->where('status', $request->status);
+        }
+
+        $bookings = $query->orderBy('created_at', 'desc')->paginate(20);
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $bookings
+        ]);
+    }
+
+    /**
      * Confirm a booking (guide only).
      */
     public function confirm(string $id)
@@ -376,14 +459,11 @@ class BookingController extends Controller
         $booking->load(['user', 'guide.user', 'trip']);
 
         // Send notification to user when booking is confirmed
-        if ($booking->trip) {
-            try {
-                $notificationService = app(\App\Services\FirebaseNotificationService::class);
-                $notificationService->notifyTripAccepted($booking->user, $booking->trip);
-            } catch (\Exception $e) {
-                // Log error but don't fail the request
-                \Log::error('Failed to send notification for trip acceptance: ' . $e->getMessage());
-            }
+        try {
+            $notificationService = app(FCMNotificationService::class);
+            $notificationService->sendBookingConfirmationNotification($booking);
+        } catch (\Exception $e) {
+            Log::error('Failed to send notification for trip acceptance: ' . $e->getMessage());
         }
 
         return response()->json([

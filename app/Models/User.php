@@ -88,4 +88,13 @@ class User extends Authenticatable implements MustVerifyEmail
             $this->notify(new \App\Notifications\VerifyEmail);
         }
     }
+
+    /**
+     * Send the password reset notification.
+     * إرسال إشعار إعادة تعيين كلمة المرور
+     */
+    public function sendPasswordResetNotification($token)
+    {
+        $this->notify(new \App\Notifications\ResetPasswordNotification($token));
+    }
 }

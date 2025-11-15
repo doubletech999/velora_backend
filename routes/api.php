@@ -9,6 +9,8 @@ use App\Http\Controllers\Api\TripController;
 use App\Http\Controllers\Api\ReviewController;
 use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\NotificationController;
+use App\Http\Controllers\Api\PasswordResetController;
+use App\Http\Controllers\Api\UserProfileController;
 
 /*
 |--------------------------------------------------------------------------
@@ -42,15 +44,18 @@ Route::get('/email/verify/{id}/{hash}', [AuthController::class, 'verifyEmail'])
     ->name('verification.verify');
 Route::post('/email/resend', [AuthController::class, 'resendVerification']);
 
+// Password Reset Routes (Public)
+Route::post('/password/email', [PasswordResetController::class, 'sendResetLinkEmail'])
+    ->name('password.email');
+Route::post('/password/reset', [PasswordResetController::class, 'reset'])
+    ->name('password.update');
+
 // ========================================
 // Sites Routes (Public - يمكن للجميع عرض المواقع)
 // ========================================
 Route::get('/sites', [SiteController::class, 'index']); // عرض جميع المواقع (public)
 Route::get('/sites/{id}', [SiteController::class, 'show']); // عرض موقع محدد (public)
 Route::get('/activities', [SiteController::class, 'activities']); // عرض قائمة الأنشطة مع العدد (public)
-
-// Protected routes (authentication required)
-Route::middleware('auth:sanctum')->group(function () {
 
 // Protected routes (authentication required)
 // Note: user.verified middleware only enforces verification for regular users (role='user')
@@ -62,6 +67,12 @@ Route::middleware(['auth:sanctum', 'user.verified'])->group(function () {
     // ========================================
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/user', [AuthController::class, 'user']);
+    
+    // ========================================
+    // User Profile Routes
+    // ========================================
+    Route::put('/user/profile', [UserProfileController::class, 'updateProfile']);
+    Route::put('/user/password', [UserProfileController::class, 'updatePassword']);
     
     // ========================================
     // Notification Routes
@@ -112,9 +123,22 @@ Route::middleware(['auth:sanctum', 'user.verified'])->group(function () {
     
     // Additional Booking Routes
     Route::prefix('bookings')->group(function () {
+        Route::get('my', [BookingController::class, 'myBookings']);
         Route::post('{id}/confirm', [BookingController::class, 'confirm']);
         Route::get('stats', [BookingController::class, 'stats']);
     });
+    
+    // Admin booking routes
+    Route::prefix('bookings')->group(function () {
+        Route::put('{id}/status', [BookingController::class, 'updateStatus']);
+    });
+});
+
+// Public booking route (optional auth for guests)
+Route::post('/bookings', [BookingController::class, 'store']);
+
+// Protected routes (authentication required)
+Route::middleware(['auth:sanctum', 'user.verified'])->group(function () {
     
     // ========================================
     // Trips Routes
@@ -195,3 +219,4 @@ Route::middleware(['auth:sanctum', 'user.verified'])->group(function () {
 | POST   /api/trips/{id}/sites                   - Add site to trip
 | DELETE /api/trips/{id}/sites                   - Remove site from trip
 |
+*/

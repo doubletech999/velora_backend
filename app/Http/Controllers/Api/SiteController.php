@@ -17,12 +17,9 @@ class SiteController extends Controller
         // Eager load relationships
         $query = Site::with(['guide.user', 'reviews']);
 
-        // Only show sites, hotels, and restaurants (not routes or camping)
-        $query->whereIn('type', ['site', 'hotel', 'restaurant']);
-
-        // Filter by type if provided (site, hotel, restaurant)
+        // Filter by type if provided (site, hotel, restaurant, route, camping)
         if ($request->has('type') && $request->type) {
-            $validTypes = ['site', 'hotel', 'restaurant'];
+            $validTypes = ['site', 'hotel', 'restaurant', 'route', 'camping'];
             if (in_array($request->type, $validTypes)) {
                 $query->where('type', $request->type);
             }
@@ -86,11 +83,7 @@ class SiteController extends Controller
                 'id' => $guide->id,
                 'name' => $guideName,
                 'name_ar' => $guideNameAr,
-                'route_price' => (float) ($guide->hourly_rate ?? 0),
-                'user' => [
-                    'name' => $guide->user->name,
-                    'name_ar' => $guide->user->name_ar ?? $guide->user->name,
-                ],
+                'route_price' => (float) ($site->price ?? $guide->hourly_rate ?? 0),
             ];
         } else {
             // Fallback to guide_name if guide relationship doesn't exist
@@ -137,10 +130,11 @@ class SiteController extends Controller
             $duration = isset($matches[1]) ? (int)$matches[1] : null;
         }
 
-        // Get distance (prefer distance, fallback to length)
-        $distance = $site->distance ?? $site->length ?? null;
+        // Get distance (prefer length, fallback to distance)
+        $distance = $site->length ?? $site->distance ?? null;
 
-        return [
+        // Base response with common fields
+        $response = [
             'id' => $site->id,
             'name' => $site->name,
             'name_ar' => $site->name_ar ?? $site->name,
@@ -149,32 +143,81 @@ class SiteController extends Controller
             'type' => $site->type,
             'location' => $site->location ?? '',
             'location_ar' => $site->location_ar ?? $site->location ?? '',
-            'address' => $site->address ?? '',
-            'city' => $site->city ?? '',
-            'contact_phone' => $site->contact_phone ?? '',
-            'contact_email' => $site->contact_email ?? '',
-            'website' => $site->website ?? '',
-            'working_hours' => $site->working_hours ?? '',
             'latitude' => (string) $site->latitude,
             'longitude' => (string) $site->longitude,
             'images' => $images,
-            'length' => $distance ? (float) $distance : null,
-            'distance' => $distance ? (float) $distance : null,
-            'distance_km' => $distance ? (float) $distance : null,
-            'estimated_duration' => $duration,
-            'duration' => $duration,
-            'duration_hours' => $duration,
-            'difficulty' => $site->difficulty ?? null,
-            'activities' => $site->activities ?? [],
             'rating' => (float) $rating,
             'review_count' => (int) $reviewCount,
-            'reviews_count' => (int) $reviewCount,
-            'price' => $site->price ? (float) $site->price : null,
-            'guide_id' => $site->guide_id,
-            'guide_name' => $guideName,
-            'guide_name_ar' => $guideNameAr,
-            'guide' => $guideData,
+            'coordinates' => $site->coordinates ?? [],
         ];
+
+        // Add type-specific fields
+        switch ($site->type) {
+            case 'route':
+            case 'camping':
+                $response = array_merge($response, [
+                    'length' => $distance ? (float) $distance : 0,
+                    'estimated_duration' => $duration,
+                    'difficulty' => $site->difficulty ?? 'medium',
+                    'activities' => $site->activities ?? [],
+                    'price' => $site->price ? (float) $site->price : null,
+                    'guide_id' => $site->guide_id,
+                    'guide' => $guideData,
+                    'warnings' => $site->warnings ?? [],
+                    'warnings_ar' => $site->warnings_ar ?? [],
+                ]);
+                
+                // Add camping-specific fields
+                if ($site->type === 'camping') {
+                    $response['amenities'] = $site->camping_amenities ?? [];
+                    $response['amenities_ar'] = $site->camping_amenities_ar ?? [];
+                    $response['capacity'] = $site->capacity ?? null;
+                }
+                break;
+
+            case 'hotel':
+                $response = array_merge($response, [
+                    'star_rating' => $site->star_rating ?? null,
+                    'price_per_night' => $site->price_per_night ? (float) $site->price_per_night : null,
+                    'amenities' => $site->hotel_amenities ?? [],
+                    'amenities_ar' => $site->hotel_amenities_ar ?? [],
+                    'room_count' => $site->room_count ?? null,
+                    'check_in_time' => $site->check_in_time ?? null,
+                    'check_out_time' => $site->check_out_time ?? null,
+                    'contact_phone' => $site->contact_phone ?? '',
+                    'contact_email' => $site->contact_email ?? '',
+                ]);
+                break;
+
+            case 'restaurant':
+                $response = array_merge($response, [
+                    'cuisine_type' => $site->cuisine_type ?? '',
+                    'cuisine_type_ar' => $site->cuisine_type_ar ?? '',
+                    'average_price' => $site->average_price ? (float) $site->average_price : null,
+                    'price_range' => $site->price_range ?? null,
+                    'opening_hours' => $site->opening_hours ?? [],
+                    'opening_hours_ar' => $site->opening_hours_ar ?? [],
+                    'contact_phone' => $site->contact_phone ?? '',
+                    'contact_email' => $site->contact_email ?? '',
+                    'menu_url' => $site->menu_url ?? null,
+                ]);
+                break;
+
+            case 'site':
+            default:
+                $response = array_merge($response, [
+                    'historical_period' => $site->historical_period ?? null,
+                    'historical_period_ar' => $site->historical_period_ar ?? null,
+                    'entrance_fee' => $site->entrance_fee ? (float) $site->entrance_fee : null,
+                    'opening_hours' => $site->opening_hours ?? [],
+                    'best_time_to_visit' => $site->best_time_to_visit ?? null,
+                    'best_time_to_visit_ar' => $site->best_time_to_visit_ar ?? null,
+                    'activities' => $site->activities ?? [],
+                ]);
+                break;
+        }
+
+        return $response;
     }
 
     /**
@@ -183,28 +226,71 @@ class SiteController extends Controller
      */
     public function store(Request $request)
     {
-        $validator = Validator::make($request->all(), [
+        $rules = [
             'name' => 'required|string|max:255',
             'name_ar' => 'nullable|string|max:255',
             'description' => 'required|string',
             'description_ar' => 'nullable|string',
             'latitude' => 'required|numeric|between:-90,90',
             'longitude' => 'required|numeric|between:-180,180',
-            'type' => 'required|in:site,hotel,restaurant',
+            'type' => 'required|in:site,hotel,restaurant,route,camping',
             'location' => 'nullable|string|max:255',
             'location_ar' => 'nullable|string|max:255',
-            'address' => 'nullable|string|max:255',
-            'city' => 'nullable|string|max:255',
-            'contact_phone' => 'nullable|string|max:50',
-            'contact_email' => 'nullable|email|max:255',
-            'website' => 'nullable|url|max:255',
-            'working_hours' => 'nullable|string|max:255',
-            'image_url' => 'nullable|url',
             'images' => 'nullable|array',
             'images.*' => 'url',
-            'activities' => 'nullable|array',
-            'activities.*' => 'string|max:255'
-        ]);
+        ];
+
+        // Type-specific validation rules
+        $type = $request->input('type');
+        
+        if (in_array($type, ['route', 'camping'])) {
+            $rules['length'] = 'nullable|numeric|min:0';
+            $rules['estimated_duration'] = 'required|integer|min:1';
+            $rules['difficulty'] = 'required|in:easy,medium,hard';
+            $rules['activities'] = 'required|array|min:1';
+            $rules['activities.*'] = 'string|max:255';
+            $rules['price'] = 'required|numeric|min:0';
+            $rules['guide_id'] = 'required|exists:guides,id';
+            $rules['warnings'] = 'nullable|array';
+            $rules['warnings_ar'] = 'nullable|array';
+            $rules['coordinates'] = 'nullable|array';
+            
+            if ($type === 'camping') {
+                $rules['camping_amenities'] = 'nullable|array';
+                $rules['camping_amenities_ar'] = 'nullable|array';
+                $rules['capacity'] = 'nullable|integer|min:1';
+            }
+        } elseif ($type === 'hotel') {
+            $rules['star_rating'] = 'required|integer|between:1,5';
+            $rules['price_per_night'] = 'required|numeric|min:0';
+            $rules['hotel_amenities'] = 'required|array|min:1';
+            $rules['hotel_amenities_ar'] = 'required|array|min:1';
+            $rules['room_count'] = 'nullable|integer|min:1';
+            $rules['check_in_time'] = 'nullable|date_format:H:i';
+            $rules['check_out_time'] = 'nullable|date_format:H:i';
+            $rules['contact_phone'] = 'nullable|string|max:20';
+            $rules['contact_email'] = 'nullable|email|max:255';
+        } elseif ($type === 'restaurant') {
+            $rules['cuisine_type'] = 'required|string|max:100';
+            $rules['cuisine_type_ar'] = 'required|string|max:100';
+            $rules['average_price'] = 'required|numeric|min:0';
+            $rules['price_range'] = 'nullable|in:$,$$,$$$,$$$$';
+            $rules['opening_hours'] = 'required|array';
+            $rules['opening_hours_ar'] = 'nullable|array';
+            $rules['contact_phone'] = 'nullable|string|max:20';
+            $rules['contact_email'] = 'nullable|email|max:255';
+            $rules['menu_url'] = 'nullable|url|max:500';
+        } elseif ($type === 'site') {
+            $rules['historical_period'] = 'nullable|string|max:100';
+            $rules['historical_period_ar'] = 'nullable|string|max:100';
+            $rules['entrance_fee'] = 'nullable|numeric|min:0';
+            $rules['opening_hours'] = 'nullable|array';
+            $rules['best_time_to_visit'] = 'nullable|string|max:50';
+            $rules['best_time_to_visit_ar'] = 'nullable|string|max:50';
+            $rules['activities'] = 'nullable|array';
+        }
+
+        $validator = Validator::make($request->all(), $rules);
 
         if ($validator->fails()) {
             return response()->json([
@@ -219,7 +305,7 @@ class SiteController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Site created successfully',
-            'data' => $site
+            'data' => $this->formatSiteResponse($site)
         ], 201);
     }
 
@@ -229,17 +315,16 @@ class SiteController extends Controller
     public function show(string $id)
     {
         $site = Site::with(['guide.user', 'reviews'])->find($id);
-        $site = Site::find($id);
 
         if (!$site) {
             return response()->json([
-                'success' => false,
+                'status' => false,
                 'message' => 'Site not found'
             ], 404);
         }
 
         return response()->json([
-            'success' => true,
+            'status' => true,
             'data' => $this->formatSiteResponse($site)
         ]);
     }
@@ -258,28 +343,71 @@ class SiteController extends Controller
             ], 404);
         }
 
-        $validator = Validator::make($request->all(), [
-            'name' => 'string|max:255',
+        $rules = [
+            'name' => 'sometimes|string|max:255',
             'name_ar' => 'nullable|string|max:255',
-            'description' => 'string',
+            'description' => 'sometimes|string',
             'description_ar' => 'nullable|string',
-            'latitude' => 'numeric|between:-90,90',
-            'longitude' => 'numeric|between:-180,180',
-            'type' => 'in:site,hotel,restaurant',
+            'latitude' => 'sometimes|numeric|between:-90,90',
+            'longitude' => 'sometimes|numeric|between:-180,180',
+            'type' => 'sometimes|in:site,hotel,restaurant,route,camping',
             'location' => 'nullable|string|max:255',
             'location_ar' => 'nullable|string|max:255',
-            'address' => 'nullable|string|max:255',
-            'city' => 'nullable|string|max:255',
-            'contact_phone' => 'nullable|string|max:50',
-            'contact_email' => 'nullable|email|max:255',
-            'website' => 'nullable|url|max:255',
-            'working_hours' => 'nullable|string|max:255',
-            'image_url' => 'nullable|url',
             'images' => 'nullable|array',
             'images.*' => 'url',
-            'activities' => 'nullable|array',
-            'activities.*' => 'string|max:255'
-        ]);
+        ];
+
+        // Type-specific validation rules
+        $type = $request->input('type', $site->type);
+        
+        if (in_array($type, ['route', 'camping'])) {
+            $rules['length'] = 'nullable|numeric|min:0';
+            $rules['estimated_duration'] = 'sometimes|integer|min:1';
+            $rules['difficulty'] = 'sometimes|in:easy,medium,hard';
+            $rules['activities'] = 'sometimes|array|min:1';
+            $rules['activities.*'] = 'string|max:255';
+            $rules['price'] = 'sometimes|numeric|min:0';
+            $rules['guide_id'] = 'sometimes|exists:guides,id';
+            $rules['warnings'] = 'nullable|array';
+            $rules['warnings_ar'] = 'nullable|array';
+            $rules['coordinates'] = 'nullable|array';
+            
+            if ($type === 'camping') {
+                $rules['camping_amenities'] = 'nullable|array';
+                $rules['camping_amenities_ar'] = 'nullable|array';
+                $rules['capacity'] = 'nullable|integer|min:1';
+            }
+        } elseif ($type === 'hotel') {
+            $rules['star_rating'] = 'sometimes|integer|between:1,5';
+            $rules['price_per_night'] = 'sometimes|numeric|min:0';
+            $rules['hotel_amenities'] = 'sometimes|array|min:1';
+            $rules['hotel_amenities_ar'] = 'sometimes|array|min:1';
+            $rules['room_count'] = 'nullable|integer|min:1';
+            $rules['check_in_time'] = 'nullable|date_format:H:i';
+            $rules['check_out_time'] = 'nullable|date_format:H:i';
+            $rules['contact_phone'] = 'nullable|string|max:20';
+            $rules['contact_email'] = 'nullable|email|max:255';
+        } elseif ($type === 'restaurant') {
+            $rules['cuisine_type'] = 'sometimes|string|max:100';
+            $rules['cuisine_type_ar'] = 'sometimes|string|max:100';
+            $rules['average_price'] = 'sometimes|numeric|min:0';
+            $rules['price_range'] = 'nullable|in:$,$$,$$$,$$$$';
+            $rules['opening_hours'] = 'sometimes|array';
+            $rules['opening_hours_ar'] = 'nullable|array';
+            $rules['contact_phone'] = 'nullable|string|max:20';
+            $rules['contact_email'] = 'nullable|email|max:255';
+            $rules['menu_url'] = 'nullable|url|max:500';
+        } elseif ($type === 'site') {
+            $rules['historical_period'] = 'nullable|string|max:100';
+            $rules['historical_period_ar'] = 'nullable|string|max:100';
+            $rules['entrance_fee'] = 'nullable|numeric|min:0';
+            $rules['opening_hours'] = 'nullable|array';
+            $rules['best_time_to_visit'] = 'nullable|string|max:50';
+            $rules['best_time_to_visit_ar'] = 'nullable|string|max:50';
+            $rules['activities'] = 'nullable|array';
+        }
+
+        $validator = Validator::make($request->all(), $rules);
 
         if ($validator->fails()) {
             return response()->json([
@@ -290,11 +418,12 @@ class SiteController extends Controller
         }
 
         $site->update($request->all());
+        $site->refresh();
 
         return response()->json([
             'success' => true,
             'message' => 'Site updated successfully',
-            'data' => $site
+            'data' => $this->formatSiteResponse($site)
         ]);
     }
 

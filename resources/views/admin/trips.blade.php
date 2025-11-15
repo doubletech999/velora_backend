@@ -100,14 +100,14 @@ console.log('Modal functions defined at page top');
 </div>
 @endif
 
-<div class="bg-white rounded-lg shadow-md">
+<div class="bg-white rounded-lg shadow-sm border border-gray-200">
     <!-- Header -->
-    <div class="p-6 border-b border-gray-200">
+    <div class="p-5 border-b border-gray-200">
         <div class="flex items-center justify-between">
-            <h3 class="text-lg font-semibold text-gray-800">All Planned Trips</h3>
+            <h3 class="text-xl font-semibold text-gray-900">All Planned Trips</h3>
             <div class="flex space-x-2">
                 <button onclick="window.openAddTripModal(); return false;" type="button"
-                    class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors cursor-pointer {{ $canCreateTrip ? '' : 'opacity-50 cursor-not-allowed hover:bg-green-600' }}"
+                    class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center text-sm font-medium {{ $canCreateTrip ? '' : 'opacity-50 cursor-not-allowed' }}"
                     {{ $canCreateTrip ? '' : 'disabled title="Add at least one user before creating a trip."' }}>
                     <i class="fas fa-plus mr-2"></i>Add New Trip
                 </button>
@@ -125,7 +125,7 @@ console.log('Modal functions defined at page top');
 
     <!-- Trips Table -->
     <div class="overflow-x-auto">
-        <table class="w-full">
+        <table class="w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
                 <tr>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
@@ -137,9 +137,9 @@ console.log('Modal functions defined at page top');
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
             </thead>
-            <tbody class="bg-white divide-y divide-gray-200">
+            <tbody class="bg-white divide-y divide-gray-100">
                 @forelse($trips as $trip)
-                <tr class="hover:bg-gray-50" data-trip-id="{{ $trip->id }}"
+                <tr class="table-row-hover" data-trip-id="{{ $trip->id }}"
                     data-price="{{ $trip->price !== null ? $trip->price : '' }}"
                     data-guide-name="{{ $trip->guide_name ?? optional(optional($trip->guide)->user)->name ?? '' }}"
                     data-guide-id="{{ $trip->guide_id ?? '' }}"
@@ -149,7 +149,6 @@ console.log('Modal functions defined at page top');
                     data-sites='@json($trip->sites ?? [])'
                     data-site-names='@json(collect($trip->sites ?? [])->map(fn($id) => $siteNameMap[$id] ?? null)->filter()->values())'
                     data-custom-sites="{{ e($trip->custom_sites ?? '') }}">
-                <tr class="hover:bg-gray-50" data-trip-id="{{ $trip->id }}">
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ $trip->id }}</td>
                     <td class="px-6 py-4">
                         <div>
@@ -200,11 +199,6 @@ console.log('Modal functions defined at page top');
                             @if(!$sitesCount && !$trip->custom_sites)
                                 <span class="text-xs text-gray-500">No associated sites</span>
                             @endif
-                    <td class="px-6 py-4 whitespace-nowrap" data-sites="{{ json_encode($trip->sites) }}">
-                        <div class="flex items-center">
-                            <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
-                                {{ count($trip->sites) }} sites
-                            </span>
                         </div>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
@@ -221,16 +215,16 @@ console.log('Modal functions defined at page top');
                                 $statusColor = 'bg-green-100 text-green-800';
                             }
                         @endphp
-                        <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full {{ $statusColor }}" data-status="{{ $status }}">
+                        <span class="inline-flex px-2.5 py-1 text-xs font-medium rounded-md {{ $statusColor }}" data-status="{{ $status }}">
                             {{ ucfirst($status) }}
                         </span>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div class="flex space-x-2">
-                            <button onclick="viewTrip({{ $trip->id }})" class="text-blue-600 hover:text-blue-900 transition-colors" title="View Details">
+                            <button onclick="viewTrip({{ $trip->id }})" class="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors" title="View Details">
                                 <i class="fas fa-eye"></i>
                             </button>
-                            <button onclick="confirmDeleteTrip({{ $trip->id }}, '{{ $trip->trip_name }}')" class="text-red-600 hover:text-red-900 transition-colors" title="Delete">
+                            <button onclick="confirmDeleteTrip({{ $trip->id }}, '{{ $trip->trip_name }}')" class="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
                                 <i class="fas fa-trash"></i>
                             </button>
                         </div>
@@ -258,38 +252,38 @@ console.log('Modal functions defined at page top');
 
 <!-- Quick Stats -->
 <div class="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-    <div class="bg-white rounded-lg shadow-md p-4">
-        <div class="flex items-center">
-            <div class="p-2 rounded-full bg-blue-100 text-blue-600 mr-3">
-                <i class="fas fa-calendar-plus"></i>
-            </div>
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
+        <div class="flex items-center justify-between">
             <div>
-                <p class="text-sm text-gray-600">Upcoming Trips</p>
-                <p class="text-lg font-semibold">{{ $trips->where('start_date', '>', now())->count() }}</p>
+                <p class="text-sm text-gray-600 mb-1">Upcoming Trips</p>
+                <p class="text-2xl font-bold text-gray-900">{{ $trips->where('start_date', '>', now())->count() }}</p>
+            </div>
+            <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                <i class="fas fa-calendar-plus text-blue-600"></i>
             </div>
         </div>
     </div>
     
-    <div class="bg-white rounded-lg shadow-md p-4">
-        <div class="flex items-center">
-            <div class="p-2 rounded-full bg-green-100 text-green-600 mr-3">
-                <i class="fas fa-play"></i>
-            </div>
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
+        <div class="flex items-center justify-between">
             <div>
-                <p class="text-sm text-gray-600">Ongoing Trips</p>
-                <p class="text-lg font-semibold">{{ $trips->filter(function($trip) { return now()->isBetween($trip->start_date, $trip->end_date); })->count() }}</p>
+                <p class="text-sm text-gray-600 mb-1">Ongoing Trips</p>
+                <p class="text-2xl font-bold text-gray-900">{{ $trips->filter(function($trip) { return now()->isBetween($trip->start_date, $trip->end_date); })->count() }}</p>
+            </div>
+            <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                <i class="fas fa-play text-green-600"></i>
             </div>
         </div>
     </div>
     
-    <div class="bg-white rounded-lg shadow-md p-4">
-        <div class="flex items-center">
-            <div class="p-2 rounded-full bg-gray-100 text-gray-600 mr-3">
-                <i class="fas fa-check"></i>
-            </div>
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
+        <div class="flex items-center justify-between">
             <div>
-                <p class="text-sm text-gray-600">Completed Trips</p>
-                <p class="text-lg font-semibold">{{ $trips->where('end_date', '<', now())->count() }}</p>
+                <p class="text-sm text-gray-600 mb-1">Completed Trips</p>
+                <p class="text-2xl font-bold text-gray-900">{{ $trips->where('end_date', '<', now())->count() }}</p>
+            </div>
+            <div class="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
+                <i class="fas fa-check text-gray-600"></i>
             </div>
         </div>
     </div>
@@ -424,10 +418,10 @@ console.log('Modal functions defined at page top');
 
 <!-- View Trip Modal -->
 <div id="addTripModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-    <div class="relative top-10 mx-auto p-5 border w-full max-w-3xl shadow-lg rounded-md bg-white">
+    <div class="relative top-10 mx-auto p-5 border w-full max-w-3xl shadow-lg rounded-lg bg-white">
         <div class="mt-3">
             <div class="flex items-center justify-between mb-4">
-                <h3 class="text-lg font-bold text-gray-900">Add New Trip</h3>
+                <h3 class="text-lg font-semibold text-gray-900">Add New Trip</h3>
                 <button type="button" onclick="window.closeAddTripModal()" class="text-gray-500 hover:text-gray-700">
                     <i class="fas fa-times"></i>
                 </button>
@@ -663,10 +657,10 @@ console.log('Modal functions defined at page top');
 
 
 <div id="viewTripModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-lg bg-white">
         <div class="mt-3">
             <div class="flex items-center justify-between mb-4">
-                <h3 class="text-lg font-bold text-gray-900">Trip Details</h3>
+                <h3 class="text-lg font-semibold text-gray-900">Trip Details</h3>
                 <button onclick="closeViewTripModal()" class="text-gray-500 hover:text-gray-700">
                     <i class="fas fa-times"></i>
                 </button>
@@ -680,26 +674,26 @@ console.log('Modal functions defined at page top');
 
 <!-- Delete Confirmation Modal -->
 <div id="deleteTripModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-lg bg-white">
         <div class="mt-3">
             <div class="flex items-center justify-center w-12 h-12 mx-auto bg-red-100 rounded-full">
-                <i class="fas fa-exclamation-triangle text-red-600 text-2xl"></i>
+                <i class="fas fa-exclamation-triangle text-red-600 text-xl"></i>
             </div>
-            <h3 class="text-lg font-bold text-gray-900 mt-4 text-center">Delete Trip</h3>
+            <h3 class="text-lg font-semibold text-gray-900 mt-4 text-center">Delete Trip</h3>
             <div class="mt-2 px-7 py-3">
                 <p class="text-sm text-gray-500 text-center" id="deleteTripMessage">
                     Are you sure you want to delete this trip?
                 </p>
             </div>
-            <div class="flex items-center justify-center gap-4 px-4 py-3">
-                <button onclick="closeDeleteTripModal()" class="px-4 py-2 bg-gray-300 text-gray-800 text-base font-medium rounded-md hover:bg-gray-400">
+            <div class="flex items-center justify-center gap-3 px-4 py-3">
+                <button onclick="closeDeleteTripModal()" class="px-4 py-2 bg-gray-200 text-gray-800 text-sm font-medium rounded-lg hover:bg-gray-300 transition-colors">
                     Cancel
                 </button>
                 <form id="deleteTripForm" method="POST" class="inline">
                     @csrf
                     @method('DELETE')
-                    <button type="submit" class="px-4 py-2 bg-red-600 text-white text-base font-medium rounded-md hover:bg-red-700">
-                        Delete
+                    <button type="submit" class="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors">
+                        <i class="fas fa-trash mr-2"></i>Delete
                     </button>
                 </form>
             </div>
@@ -751,14 +745,6 @@ function viewTrip(tripId) {
         siteNames = [];
     }
 
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    const duration = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
-
-    const sites = row.querySelector('[data-sites]').getAttribute('data-sites');
-    const sitesCount = JSON.parse(sites).length;
-    const status = row.querySelector('[data-status]').getAttribute('data-status');
-    
     const start = new Date(startDate);
     const end = new Date(endDate);
     const duration = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
@@ -830,11 +816,6 @@ function viewTrip(tripId) {
             </div>
         </div>
         ` : ''}
-
-        <div class="border-b pb-3">
-            <p class="text-xs text-gray-500">Sites</p>
-            <p class="text-sm font-medium">${sitesCount} tourist sites</p>
-        </div>
         <div>
             <p class="text-xs text-gray-500">Status</p>
             <p class="text-sm font-medium">${status.charAt(0).toUpperCase() + status.slice(1)}</p>
